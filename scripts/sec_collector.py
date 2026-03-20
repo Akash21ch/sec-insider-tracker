@@ -101,7 +101,11 @@ def parse_form4(accession_number, cik, ticker, filing_date):
         start = xml.find("<{}>".format(tag))
         end = xml.find("</{}>".format(tag))
         if start != -1 and end != -1:
-            return xml[start + len(tag) + 2:end].strip()
+            raw = xml[start + len(tag) + 2:end].strip()
+            import re
+            clean = re.sub(r'<[^>]+>', '', raw)
+            clean = ' '.join(clean.split())
+            return clean if clean else None
         return None
     
     # Get insider details
@@ -113,8 +117,13 @@ def parse_form4(accession_number, cik, ticker, filing_date):
         return None
     
     insider_role_upper = insider_role.upper()
-    if "CEO" not in insider_role_upper and "CFO" not in insider_role_upper and \
-       "CHIEF EXECUTIVE" not in insider_role_upper and "CHIEF FINANCIAL" not in insider_role_upper:
+    ceo_titles = [
+        "CEO", "CFO", "CHIEF EXECUTIVE", "CHIEF FINANCIAL",
+        "PRINCIPAL EXECUTIVE", "PRINCIPAL FINANCIAL",
+        "PRESIDENT AND CEO", "CO-CEO", "TECHNOKING",
+        "CHIEF EXECUTIVE OFFICER", "CHIEF FINANCIAL OFFICER"
+    ]
+    if not any(title in insider_role_upper for title in ceo_titles):
         return None
     
     # Get transaction details
