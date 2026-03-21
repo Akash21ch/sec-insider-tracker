@@ -212,3 +212,6 @@ data/
 .env
 
 .DS_Store
+
+config.py
+scripts/config.py
