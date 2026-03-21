@@ -1,50 +1,47 @@
-import requests
+import yfinance as yf
 import pandas as pd
-import time
 import os
-from config import ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_BASE_URL, PRICE_WINDOWS
+from config import PRICE_WINDOWS
 from companies import COMPANIES
 
 
 def get_stock_price(ticker):
-    """Fetch daily stock prices for a company from Alpha Vantage"""
+    """Fetch daily stock prices for a company using yfinance"""
     print("  Fetching price data for {}".format(ticker))
     
-    params = {
-        "function": "TIME_SERIES_DAILY",
-        "symbol": ticker,
-        "outputsize": "full",
-        "apikey": ALPHA_VANTAGE_API_KEY
-    }
-    
-    response = requests.get(ALPHA_VANTAGE_BASE_URL, params=params)
-    data = response.json()
-    
-    # Check if we got valid data back
-    if "Time Series (Daily)" not in data:
-        print("  Could not get price data for {}".format(ticker))
-        print("  Response: {}".format(data))
+    try:
+        # Download full history from 2015 to today
+        stock = yf.download(ticker, start="2015-01-01", progress=False)
+        
+        if stock.empty:
+            print("  No data returned for {}".format(ticker))
+            return None
+        
+        # Flatten column names if they are multi-level
+        if isinstance(stock.columns, pd.MultiIndex):
+            stock.columns = stock.columns.get_level_values(0)
+        
+        # Reset index to make date a regular column
+        stock = stock.reset_index()
+        
+        # Rename columns to lowercase
+        stock.columns = [col.lower() for col in stock.columns]
+        
+        # Keep only the columns we need
+        stock = stock[["date", "open", "high", "low", "close", "volume"]]
+        
+        # Add ticker column
+        stock["ticker"] = ticker
+        
+        # Sort by date oldest first
+        stock = stock.sort_values("date").reset_index(drop=True)
+        
+        print("  ✅ Got {} days of price data".format(len(stock)))
+        return stock
+        
+    except Exception as e:
+        print("  Error fetching {}: {}".format(ticker, e))
         return None
-    
-    # Convert to a pandas dataframe
-    prices = data["Time Series (Daily)"]
-    df = pd.DataFrame.from_dict(prices, orient="index")
-    
-    # Clean up column names
-    df.columns = ["open", "high", "low", "close", "volume"]
-    
-    # Add ticker column and clean up index
-    df["ticker"] = ticker
-    df.index.name = "date"
-    df = df.reset_index()
-    
-    # Convert date to proper format
-    df["date"] = pd.to_datetime(df["date"])
-    
-    # Sort by date oldest first
-    df = df.sort_values("date").reset_index(drop=True)
-    
-    return df
 
 
 def calculate_price_impact(trades_df, prices_df):
@@ -60,6 +57,9 @@ def calculate_price_impact(trades_df, prices_df):
         
         if company_prices.empty:
             continue
+        
+        # Make sure date column is datetime
+        company_prices["date"] = pd.to_datetime(company_prices["date"])
         
         # Find the closing price on the trade date
         trade_day_price = company_prices[
@@ -127,53 +127,37 @@ def collect_prices():
     print("Loaded {} trades from {}".format(len(trades_df), trades_path))
     
     # Get unique tickers we need prices for
-    tickers = trades_df["ticker"].unique()
+    tickers = list(trades_df["ticker"].unique())
     print("Need price data for {} companies".format(len(tickers)))
-    print("Note: Alpha Vantage free tier = 25 calls per day")
-    print("This may take multiple days if you have more than 25 companies\n")
     
     all_prices = []
-    calls_made = 0
     
     # Check if we already have some price data saved
     prices_path = "data/stock_prices.csv"
     if os.path.exists(prices_path):
         existing_prices = pd.read_csv(prices_path)
-        already_fetched = existing_prices["ticker"].unique()
-        print("Already have prices for: {}".format(list(already_fetched)))
+        already_fetched = list(existing_prices["ticker"].unique())
+        print("Already have prices for: {}".format(already_fetched))
         all_prices.append(existing_prices)
-        # Only fetch tickers we don't have yet
         tickers = [t for t in tickers if t not in already_fetched]
-        print("Still need: {}\n".format(list(tickers)))
+        print("Still need: {}\n".format(tickers))
     
+    # Fetch prices for remaining tickers
     for ticker in tickers:
-        if calls_made >= 24:
-            print("\n⚠️  Reached 24 API calls for today. Run again tomorrow!")
-            print("Progress saved - script will pick up where it left off.")
-            break
-        
         print("Processing: {}".format(ticker))
         prices = get_stock_price(ticker)
         
         if prices is not None:
             all_prices.append(prices)
-            calls_made += 1
-            print("  ✅ Got {} days of price data".format(len(prices)))
-        
-        # Wait 12 seconds between calls
-        # Free tier allows 5 calls per minute so we stay safe
-        if calls_made < len(tickers):
-            print("  Waiting 12 seconds before next call...")
-            time.sleep(12)
     
-    # Save all prices collected so far
+    # Save all prices collected
     if all_prices:
         combined = pd.concat(all_prices, ignore_index=True)
         combined.to_csv(prices_path, index=False)
         print("\n✅ Saved price data for {} companies".format(
             len(combined["ticker"].unique())))
         
-        # Now calculate price impact if we have all the data
+        # Calculate price impact
         fetched_tickers = combined["ticker"].unique()
         all_tickers_needed = trades_df["ticker"].unique()
         
@@ -183,10 +167,13 @@ def collect_prices():
             results.to_csv("data/trades_with_returns.csv", index=False)
             print("✅ Saved {} trades with price impact to data/trades_with_returns.csv".format(
                 len(results)))
+            print("\nSample of results:")
+            print(results[["ticker", "insider_name", "transaction_date",
+                          "price_on_trade_date", "return_30d",
+                          "return_60d", "return_90d"]].head(10))
         else:
             missing = set(all_tickers_needed) - set(fetched_tickers)
             print("\nStill missing prices for: {}".format(missing))
-            print("Run this script again tomorrow to continue!")
 
 
 # Run the main function
