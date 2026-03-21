@@ -5,12 +5,13 @@ import os
 from config import ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_BASE_URL, PRICE_WINDOWS
 from companies import COMPANIES
 
+
 def get_stock_price(ticker):
     """Fetch daily stock prices for a company from Alpha Vantage"""
     print("  Fetching price data for {}".format(ticker))
     
     params = {
-        "function": "TIME_SERIES_DAILY_ADJUSTED",
+        "function": "TIME_SERIES_DAILY",
         "symbol": ticker,
         "outputsize": "full",
         "apikey": ALPHA_VANTAGE_API_KEY
@@ -30,8 +31,7 @@ def get_stock_price(ticker):
     df = pd.DataFrame.from_dict(prices, orient="index")
     
     # Clean up column names
-    df.columns = ["open", "high", "low", "close", "adjusted_close", 
-                  "volume", "dividend", "split_coefficient"]
+    df.columns = ["open", "high", "low", "close", "volume"]
     
     # Add ticker column and clean up index
     df["ticker"] = ticker
@@ -64,7 +64,7 @@ def calculate_price_impact(trades_df, prices_df):
         # Find the closing price on the trade date
         trade_day_price = company_prices[
             company_prices["date"] == trade_date
-        ]["adjusted_close"]
+        ]["close"]
         
         if trade_day_price.empty:
             # Try the next available trading day
@@ -73,7 +73,7 @@ def calculate_price_impact(trades_df, prices_df):
             ]
             if future_prices.empty:
                 continue
-            trade_day_price = future_prices.iloc[0]["adjusted_close"]
+            trade_day_price = future_prices.iloc[0]["close"]
             trade_date = future_prices.iloc[0]["date"]
         else:
             trade_day_price = trade_day_price.values[0]
@@ -98,10 +98,10 @@ def calculate_price_impact(trades_df, prices_df):
             ]
             
             if not future_price.empty:
-                future_price_value = future_price.iloc[0]["adjusted_close"]
+                future_price_value = future_price.iloc[0]["close"]
                 
                 # Calculate percentage return
-                price_change = ((float(future_price_value) - float(trade_day_price)) 
+                price_change = ((float(future_price_value) - float(trade_day_price))
                                / float(trade_day_price)) * 100
                 
                 result["return_{}d".format(days)] = round(price_change, 2)
