@@ -12,7 +12,7 @@ HEADERS = {
 
 # The date range we want - 11 years of data
 START_DATE = "2015-01-01"
-END_DATE = "2026-03-20"
+END_DATE = datetime.today().strftime('%Y-%m-%d')
 
 # Import our list of 20 companies
 from companies import COMPANIES
