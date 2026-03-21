@@ -91,6 +91,27 @@ def add_trade_labels(df):
     })
     return df
 
+def classify_role(role):
+    """Classify insider as CEO or CFO specifically"""
+    if role is None:
+        return "Other"
+    role_upper = role.upper()
+    if any(title in role_upper for title in [
+        "CHIEF EXECUTIVE", "CEO", "PRINCIPAL EXECUTIVE", "TECHNOKING"
+    ]):
+        return "CEO"
+    elif any(title in role_upper for title in [
+        "CHIEF FINANCIAL", "CFO", "PRINCIPAL FINANCIAL"
+    ]):
+        return "CFO"
+    else:
+        return "Other"
+
+
+def add_role_classification(df):
+    """Add a clean CEO vs CFO column"""
+    df['role_type'] = df['insider_role'].apply(classify_role)
+    return df
 
 def clean_data():
     """Main function - cleans the raw insider trades data"""
@@ -144,13 +165,17 @@ def clean_data():
     # Step 6 - Add human readable labels
     print("  Step 6: Adding trade direction labels...")
     df = add_trade_labels(df)
+
+    # Step 7 - Classify CEO vs CFO
+    print("  Step 7: Classifying CEO vs CFO...")
+    df = add_role_classification(df)
     
-    # Step 7 - Sort by date
-    print("  Step 7: Sorting by date...")
+    # Step 8 - Sort by date
+    print("  Step 8: Sorting by date...")
     df = df.sort_values('transaction_date').reset_index(drop=True)
     
-    # Step 8 - Add a year and month column for easy Tableau filtering
-    print("  Step 8: Adding year and month columns...")
+    # Step 9 - Add a year and month column
+    print("  Step 9: Adding year and month columns...")
     df['year'] = pd.to_datetime(df['transaction_date']).dt.year
     df['month'] = pd.to_datetime(df['transaction_date']).dt.month
     
