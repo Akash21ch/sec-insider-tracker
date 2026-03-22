@@ -38,23 +38,44 @@ def get_filings(cik, ticker):
     response = requests.get(url, headers=HEADERS)
     data = response.json()
 
-    filings = data.get("filings", {}).get("recent", {})
+    all_forms = []
+    all_dates = []
+    all_accessions = []
 
-    forms = filings.get("form", [])
-    dates = filings.get("filingDate", [])
-    accession_numbers = filings.get("accessionNumber", [])
+    # Get recent filings
+    recent = data.get("filings", {}).get("recent", {})
+    all_forms.extend(recent.get("form", []))
+    all_dates.extend(recent.get("filingDate", []))
+    all_accessions.extend(recent.get("accessionNumber", []))
 
+    # Get older filings from archive files
+    older_files = data.get("filings", {}).get("files", [])
+    for file_info in older_files:
+        file_name = file_info.get("name", "")
+        if file_name:
+            archive_url = "https://data.sec.gov/submissions/{}".format(file_name)
+            try:
+                archive_response = requests.get(archive_url, headers=HEADERS, timeout=10)
+            except Exception:
+                continue
+            if archive_response.status_code == 200:
+                archive_data = archive_response.json()
+                all_forms.extend(archive_data.get("form", []))
+                all_dates.extend(archive_data.get("filingDate", []))
+                all_accessions.extend(archive_data.get("accessionNumber", []))
+            time.sleep(0.3)
+
+    # Filter to only Form 4 filings within our date range
     form4_filings = []
-
-    for i in range(len(forms)):
-        if forms[i] == "4":
-            filing_date = dates[i]
+    for i in range(len(all_forms)):
+        if all_forms[i] == "4":
+            filing_date = all_dates[i]
             if START_DATE <= filing_date <= END_DATE:
                 form4_filings.append({
                     "ticker": ticker,
                     "cik": cik,
                     "filing_date": filing_date,
-                    "accession_number": accession_numbers[i]
+                    "accession_number": all_accessions[i]
                 })
 
     return form4_filings
@@ -70,7 +91,10 @@ def parse_form4(accession_number, cik, ticker, filing_date):
         cik_int, acc_formatted, accession_number
     )
 
-    index_response = requests.get(index_url, headers=HEADERS)
+    try:
+        index_response = requests.get(index_url, headers=HEADERS, timeout=10)
+    except Exception:
+        return None
 
     if index_response.status_code != 200:
         return None
