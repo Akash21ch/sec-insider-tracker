@@ -118,7 +118,10 @@ def parse_form4(accession_number, cik, ticker, filing_date):
     xml_url = "https://www.sec.gov{}".format(xml_file)
 
     # Download the actual XML file
-    response = requests.get(xml_url, headers=HEADERS)
+    try:
+        response = requests.get(xml_url, headers=HEADERS, timeout=10)
+    except Exception:
+        return None
 
     if response.status_code != 200:
         return None
