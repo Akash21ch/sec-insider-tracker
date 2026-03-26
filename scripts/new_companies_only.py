@@ -8,8 +8,16 @@ from sec_collector import get_cik, get_filings, parse_form4
 
 # Only the NEW companies
 NEW_COMPANIES = [
-    {"name": "Salesforce", "ticker": "CRM"},
+    {"name": "Morgan Stanley", "ticker": "MS"},
+    {"name": "Citigroup",      "ticker": "C"},
+    {"name": "AbbVie",         "ticker": "ABBV"},
+    {"name": "UnitedHealth",   "ticker": "UNH"},
+    {"name": "Chevron",        "ticker": "CVX"},
+    {"name": "ConocoPhillips", "ticker": "COP"},
+    {"name": "Costco",         "ticker": "COST"},
+    {"name": "Target",         "ticker": "TGT"},
 ]
+
 
 HEADERS = {"User-Agent": "Akash Chaudhary akash.ch2122@gmail.com"}
 START_DATE = "2015-01-01"
