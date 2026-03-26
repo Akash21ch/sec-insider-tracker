@@ -216,4 +216,4 @@ data/
 config.py
 scripts/config.py
 
-scripts/test_filing.py
+scripts/test_filing.py.claude
