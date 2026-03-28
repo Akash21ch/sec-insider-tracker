@@ -16,6 +16,7 @@ An end-to-end data pipeline analysing CEO and CFO insider trading activity acros
 
 [View the interactive Tableau dashboard →](https://public.tableau.com/app/profile/akash.chaudhary4621)
 [View the portfolio website →](https://akash21ch.github.io/sec-insider-tracker)
+[Read the findings report →](./SEC_Insider_Trading_Report.pdf)
 
 ## Project Structure
 ```
